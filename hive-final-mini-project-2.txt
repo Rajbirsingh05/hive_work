@@ -1,0 +1,413 @@
+Objective - The assignment is meant for you to apply learnings of the module on Hive on a real-life dataset. 
+One of the major objectives of this assignment is gaining familiarity with how an analysis works in Hive and how you can gain insights from large datasets.
+ 
+Problem Statement - New York City is a thriving metropolis and just like most other cities of similar size, one of the biggest problems its residents face is parking. 
+The classic combination of a huge number of cars and a cramped geography is the exact recipe that leads to a large number of parking tickets.
+ 
+In an attempt to scientifically analyse this phenomenon, the NYC Police Department regularly collects data related to parking tickets. 
+This data is made available by NYC Open Data portal. We will try and perform some analysis on this data.
+
+Download Dataset - https://data.cityofnewyork.us/browse?q=parking+tickets
+
+Note: Consider only the year 2017 for analysis and not the Fiscal year.
+************************** Starting assignment*********************************************
+table created
+ 
+create table ny_tracffic(
+summons_num bigint,
+plate_id string,
+registration_state string,
+plate_type string,
+issu_date string,
+violation_code int,
+vehicle_body_type string,
+vehicle_make string,
+issuing_agency string,
+street_code1 int,
+street_code2 int,
+street_code3 int,
+vehicle_expiration_date int,
+violation_location float,
+violation_precinct int,
+issuer_precinct int,
+issuer_code int,
+issuer_command string,
+issuer_squad string,
+violation_time string,
+time_first_observed string,
+violation_country string,
+violation_infront_or_opposite string,
+house_number string,
+street_name string,
+interacting_street string,
+date_first_observed int,
+law_section int,
+sub_division string,
+violation_legal_code string,
+day_parking_effect string,
+from_house_in_effect string,
+to_house_in_effect string,
+vehicle_color string,
+unregistered_vehicle float,
+vehicle_year string,
+meter_number string,
+feet_from_curb int,
+violation_past_code string,
+violation_description string,
+no_standing_stoping_violation float,
+hydrant_violation float,
+double_parking_violation float)
+row format delimited
+fields terminated by ","
+tblproperties("skip.header.line.count"="1");
+
+parition tables created:-
+
+create table ny_traffic_partition(
+summons_num bigint,
+plate_id string,
+registration_state string,
+plate_type string,
+issu_date string,
+violation_code int,
+vehicle_body_type string,
+vehicle_make string,
+issuing_agency string,
+street_code1 int,
+street_code2 int,
+street_code3 int,
+vehicle_expiration_date int,
+violation_location float,
+violation_precinct int,
+issuer_precinct int,
+issuer_code int,
+issuer_command string,
+issuer_squad string,
+violation_time string,
+time_first_observed string,
+violation_infront_or_opposite string,
+house_number string,
+street_name string,
+interacting_street string,
+date_first_observed int,
+law_section int,
+sub_division string,
+violation_legal_code string,
+day_parking_effect string,
+from_house_in_effect string,
+to_house_in_effect string,
+vehicle_color string,
+unregistered_vehicle float,
+vehicle_year string,
+meter_number string,
+feet_from_curb int,
+violation_past_code string,
+violation_description string,
+no_standing_stoping_violation float,
+hydrant_violation float,
+double_parking_violation float)
+partitioned by (violation_country string)
+clustered by (violation_code) into 10 buckets;
+
+
+## data loaded to parition table
+
+insert into table ny_traffic_partition partition(violation_country) select summons_number , plate_id , registration_state, plate_type, issu_date, violation_code ,
+vehicle_body_type ,
+vehicle_make ,
+issuing_agency ,
+street_code1 ,
+street_code2 ,
+street_code3 ,
+vehicle_expiration_date ,
+violation_location float,
+violation_precinct ,
+issuer_precinct ,
+issuer_code ,
+issuer_command ,
+issuer_squad ,
+violation_time ,
+time_first_observed ,
+violation_infront_or_opposite ,
+house_number ,
+street_name ,
+interacting_street ,
+date_first_observed ,
+law_section ,
+sub_division ,
+violation_legal_code ,
+day_parking_effect ,
+from_house_in_effect ,
+to_house_in_effect ,
+vehicle_color ,
+unregistered_vehicle,
+vehicle_year ,
+meter_number ,
+feet_from_curb ,
+violation_past_code ,
+violation_description ,
+no_standing_stoping_violation,
+hydrant_violation,
+double_parking_violation,
+violation_country from ny_tracffic where issu_date like '%2017%';
+
+
+--------------------------------------------------------------------------------
+The analysis can be divided into two parts:
+ 
+Part-I: Examine the data
+
+1.) Find the total number of tickets for the year.
+select count(*) from ny_tracffic where Issu_Date like '%2017%';
+-------------------------------------------------------------------------------------------
+
+2.) Find out how many unique states the cars which got parking tickets came from.
+select distinct(registration_state) from ny_tracffic;
+
+---------------------------------------------------------------------------------------------------
+
+3.) Some parking tickets don’t have addresses on them, which is cause for concern. 
+Find out how many such tickets there are(i.e. tickets where either "Street Code 1" or "Street Code 2" or "Street Code 3" is empty )
+
+select count(*) from ny_tracffic where street_code1 =0 or street_code2 =0 or street_code3 =0;
+-----------------------------------------------------------------------------------------------------------------------------
+
+
+
+Part-II: Aggregation tasks
+
+1.) How often does each violation code occur? (frequency of violation codes - find the top 5)
+
+select  violation_code, count(violation_code) frequency_violation_codes from ny_traffic_partition group by violation_code order by frequency_violation_codes desc limit 5;
+
+--------------------------------------------------------------------------------------------------------------------------
+
+2.) How often does each vehicle body type get a parking ticket? How about the vehicle make? (find the top 5 for both)
+
+select vehicle_body_type, count(summons_num) parking_tickets from ny_traffic_partition group by vehicle_body_type order by parking_tickets desc limit 5;
+
+
+select vehicle_make, count(summons_num) parking_tickets from ny_traffic_partition group by vehicle_make order by parking_tickets desc limit 5;
+
+-------------------------------------------------------------------------------------------------------------------------------
+
+3.) A precinct is a police station that has a certain zone of the city under its command. Find the (5 highest) frequencies of:
+      a.) Violating Precincts (this is the precinct of the zone where the violation occurred)
+      b.) Issuer Precincts (this is the precinct that issued the ticket)
+
+a. select violation_precinct, count(summons_num) as num_of_violation_occured from ny_traffic_partition group by violation_precinct order by num_of_violation_occured desc limit 5;
+
+b. select issuer_precinct, count(summons_num) as num_of_violation_occured from ny_traffic_partition group by issuer_precinct order by num_of_violation_occured desc limit 5
+-------------------------------------------------------------------------------------------------------------------------------------------------
+
+4.) Find the violation code frequency across 3 precincts which have issued the most number of tickets - do these precinct zones have an exceptionally high 
+frequency of certain violation codes?
+
+select issuer_precinct, violation_code, count(violation_code) number_of_tickets from ny_traffic_partition group by issuer_precinct, violation_code order by number_of_tickets desc limit 10;
+
+issuer_precinct violation_code  number_of_tickets
+0       		36      		662765
+0       		7       		210175
+0       		21      		126050
+18      		14      		50150
+19      		46      		48444
+0       		5       		48076
+14      		14      		45036
+1       		14      		38354
+19      		38      		36386
+19      		37      		36056
+
+checking 3 issuer precinct(18,19,14) violation code frequency
+
+select violation_code, count(*) number_of_tickets from ny_traffic_partition where issuer_precinct =18  group by  violation_code order by number_of_tickets desc limit 10;
+
+violation_code  number_of_tickets
+14      50150
+69      20189
+47      14107
+31      11893
+46      7863
+42      6190
+38      6176
+84      5189
+19      4580
+20      4114
+
+
+select violation_code, count(*) number_of_tickets from ny_traffic_partition where issuer_precinct =18  group by  violation_code order by number_of_tickets desc limit 10;
+
+violation_code  number_of_tickets
+14      45036
+69      30464
+31      22555
+47      18364
+42      10027
+46      7679
+19      7030
+84      6743
+82      5052
+40      3582
+
+
+select violation_code, count(*) number_of_tickets from ny_traffic_partition where issuer_precinct =18  group by  violation_code order by number_of_tickets desc limit 10;
+
+violation_code  number_of_tickets
+46      48444
+38      36386
+37      36056
+14      29797
+21      28414
+20      14629
+40      11416
+16      9926
+71      7493
+19      6856
+
+14 69 are two major violation code 
+ 
+----------------------------------------------------------------------------------------------------------------------------------------
+5.) Find out the properties of parking violations across different times of the day: The Violation Time field is specified in a strange format. 
+Find a way to make this into a time attribute that you can use to divide into groups.
+
+converting string into time
+
+select from_unixtime(unix_timestamp(regexp_extract(violation_time,'(.*)[A-Z]',1),'HHmm'),"HH:mm") as timestamp from ny_traffic_partition limit 3; ( this query will give output like 01:45)
+
+select from_unixtime(unix_timestamp(concat(violation_time,'M'),"HHmmaaa"),"HH:mmaaa") as time from ny_traffic_partition limit 5; ( this query will give output like 01:45AM)
+
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------
+6.) Divide 24 hours into 6 equal discrete bins of time. The intervals you choose are at your discretion. For each of these groups, find the 3 most commonly occurring violations
+
+create view ny_traffic_partition_6_bins1 partitioned on(violation_code) as select summons_number, violation_time, issuer_precinct, violation_precinct,
+case
+when substring(violation_time,1,2) in ('00','01','02','03','12') and upper(substring(violation_time,-1))='A' then 1
+when substring(violation_time,1,2) in ('04','05','06','07') and upper(substring(violation_time, -1))='A' then 2
+when substring(violation_time,1,2) in ('08','09','10','11') and upper(substring(violation_time, -1))='A' then 3
+when substring(violation_time,1,2) in ('12','01','02','03') and upper(substring(violation_time, -1))='P' then 4
+when substring(violation_time,1,2) in ('04','05','06','07') and upper(substring(violation_time, -1))='P' then 5
+when substring(violation_time,1,2) in ('08','09','10','11') and upper(substring(violation_time, -1))='P' then 6
+else null end as bins, violation_code 
+from ny_traffic_partition 
+where violation_time is not null or (length(violation_time)=5 and upper(substring(violation_time,-1))in ('A','P')
+and substring(violation_time,1,2) in ('00','01','02','03','04','05','06','07', '08','09','10','11','12'));
+
+
+****************bin = 1 common violations **************************
+
+select violation_code, count(violation_code)as common_violation from ny_traffic_partition_6_bins1 where bins =1 group by violation_code order by common_violation desc limit 10;
+
+21      34703
+40      23628
+14      14168
+
+****************bin = 2 common violations **************************
+select violation_code, count(violation_code)as common_violation from ny_traffic_partition_6_bins1 where bins =2 group by violation_code order by common_violation desc limit 10;
+
+14      74114
+40      60652
+21      57896
+
+****************bin = 3 common violations **************************
+
+select violation_code, count(violation_code)as common_violation from ny_traffic_partition_6_bins1 where bins =3 group by violation_code order by common_violation desc limit 10;
+21      598060
+36      348165
+38      176570
+
+
+****************bin = 4 common violations **************************
+
+select violation_code, count(violation_code)as common_violation from ny_traffic_partition_6_bins1 where bins =4 group by violation_code order by common_violation desc limit 10;
+
+36      286284
+38      240721
+37      167025
+
+
+
+****************bin = 5 common violations **************************
+
+select violation_code, count(violation_code)as common_violation from ny_traffic_partition_6_bins1 where bins =5 group by violation_code order by common_violation desc limit 10;
+38      102855
+14      75902
+37      70345
+
+
+****************bin = 6 common violations **************************
+
+select violation_code, count(violation_code)as common_violation from ny_traffic_partition_6_bins1 where bins =6 group by violation_code order by common_violation desc limit 10;
+
+7       26293
+40      22337
+14      21045
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+7.) Now, try another direction. For the 3 most commonly occurring violation codes, find the most common times of day (in terms of the bins from the previous part)
+
+violation code that are high frequency (21,36,37,38)
+
+select bins, count(bins) ticket_issued from ny_traffic_partition_6_bins1 where violation_code in (21,36,37,38) group by bins order by ticket_issued limit 3;
+
+3       1173198
+4       768722
+5       186993
+------------------------------------------------------------------------------------------------------------------------
+8.) Let’s try and find some seasonality in this data
+      a.) First, divide the year into some number of seasons, and find frequencies of tickets for each season. 
+(Hint: A quick Google search reveals the following seasons in NYC: Spring(March, April, March); 
+Summer(June, July, August); Fall(September, October, November); Winter(December, January, February))
+ 
+ 
+create view ny_traffic_seasons partitioned on(violation_code) as select issu_date,issuer_precinct, case
+when substring(issu_date,1,2) in ('03','04','05') then 'spring'
+when substring(issu_date,1,2) in ('06','07','08') then 'summer'
+when substring(issu_date,1,2) in ('09','10','11') then 'fall'
+when substring(issu_date,1,2) in ('12','01','02') then 'winter'
+else 'unknown' end as seasons, violation_code from ny_traffic_partition
+
+
+select seasons,  count(*) as ticket_count from ny_traffic_seasons group by seasons order by ticket_count desc;
+  
+spring  2873380
+winter  1704680
+summer  852864
+fall    979
+
+    b.)Then, find the 3 most common violations for each of these seasons.
+
+*******************spring*******************
+select violation_code, count(*) ticket_count from ny_traffic_seasons where seasons = 'spring' group by violation_code order by ticket_count desc limit 3;
+21      402424
+36      344834
+38      271167
+
+******************* winter *******************
+select violation_code, count(*) ticket_count from ny_traffic_seasons where seasons = 'winter' group by violation_code order by ticket_count desc limit 3;
+
+21      238180
+36      221268
+38      187386
+
+******************* summer *******************
+select violation_code, count(*) ticket_count from ny_traffic_seasons where seasons = 'winter' group by violation_code order by ticket_count desc limit 3;
+
+21      127350
+36      96663
+38      83518
+
+
+******************* fall *******************
+select violation_code, count(*) ticket_count from ny_traffic_seasons where seasons = 'winter' group by violation_code order by ticket_count desc limit 3;
+
+46      231
+21      128
+40      116
+
+21,36,38 are most common violation code.
+
+-------------------------------------------------------------------------------------------------------------------------------------------------------------
+Note: Please ensure you make necessary optimizations to your queries like selecting the appropriate table format, 
+using partitioned/bucketed tables. Marks will be awarded for keeping the performance also in mind.
+
+
